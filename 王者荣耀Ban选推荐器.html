@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>王者荣耀 · Ban/Pick 推荐器</title>
+<style>
+  :root{
+    --bg:#0e1014; --panel:#161a21; --panel2:#1c212a; --line:#282e39;
+    --tx:#e9edf4; --tx2:#9aa4b2; --tx3:#68717f;
+    --my:#5b9dff; --enemy:#ff6b6b; --ok:#4ade80; --warn:#ffb03d;
+    --r:10px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:22px 18px 70px; background:var(--bg); color:var(--tx);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+    font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1240px;margin:0 auto}
+  h1{margin:0 0 4px;font-size:22px;letter-spacing:.5px}
+  h1 b{color:var(--my)}
+  .sub{color:var(--tx2);font-size:12.5px;margin-bottom:18px}
+
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  button{
+    font-family:inherit;font-size:13px;cursor:pointer;border-radius:8px;
+    border:1px solid var(--line);background:var(--panel2);color:var(--tx);
+    padding:8px 16px;transition:.15s;
+  }
+  button:hover{border-color:#3d475a;background:#232936}
+  button.primary{background:var(--my);border-color:var(--my);color:#08101c;font-weight:700}
+  button.primary:hover{background:#78b0ff;border-color:#78b0ff}
+  button.ghost{background:transparent}
+
+  /* ===== 编辑器 ===== */
+  .editor{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+  .side{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden}
+  .side.my{border-top:3px solid var(--my)}
+  .side.enemy{border-top:3px solid var(--enemy)}
+  .side-head{
+    padding:9px 14px;font-weight:700;font-size:13.5px;background:var(--panel2);
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .side.my .side-head{color:#9dc2ff}
+  .side.enemy .side-head{color:#ffa0a0}
+  .side-body{padding:12px 14px 14px}
+
+  .slot{margin-bottom:13px}
+  .slot:last-child{margin-bottom:0}
+  .slot-head{font-size:12px;color:var(--tx2);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .slot-head .n{color:var(--tx3)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px;min-height:0}
+  .chip{
+    display:inline-flex;align-items:center;gap:5px;padding:3px 6px 3px 4px;
+    border-radius:7px;background:var(--panel2);border:1px solid var(--line);font-size:12.5px;
+  }
+  .chip .av{
+    width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;color:#0b0e14;
+  }
+  .chip .x{cursor:pointer;color:var(--tx3);font-size:14px;line-height:1;padding:0 1px}
+  .chip .x:hover{color:#ff8080}
+  .slot-input{
+    width:100%;padding:7px 10px;font-family:inherit;font-size:13px;color:var(--tx);
+    background:var(--bg);border:1px solid var(--line);border-radius:8px;outline:none;
+  }
+  .slot-input:focus{border-color:var(--my)}
+  .side.enemy .slot-input:focus{border-color:var(--enemy)}
+  .sug{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .sug button{
+    padding:3px 9px;font-size:12px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);
+  }
+  .sug button:hover{background:#2a3140;border-color:#44506a}
+  .sug button b{font-weight:400}
+  .sug .empty{font-size:11.5px;color:var(--tx3);padding:2px 0}
+
+  /* ===== 诊断 ===== */
+  .diag{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+  .card{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);padding:12px 14px}
+  .card h3{margin:0 0 8px;font-size:13px;color:var(--tx2);font-weight:600}
+  .tags{display:flex;flex-wrap:wrap;gap:6px}
+  .t{padding:2px 9px;border-radius:6px;font-size:12px;border:1px solid}
+  .t.gap{color:#ffc978;border-color:rgba(255,176,61,.4);background:rgba(255,176,61,.09)}
+  .t.thr{color:#ff9b9b;border-color:rgba(255,107,107,.4);background:rgba(255,107,107,.09)}
+  .t.none{color:var(--ok);border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.08)}
+
+  /* ===== 结果 ===== */
+  .results{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .res{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden}
+  .res-head{padding:10px 14px;font-weight:700;font-size:13.5px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  .res.ban .res-head{color:#ff9b9b}
+  .res.pick .res-head{color:#8ce8b0}
+  .res-body{padding:10px 12px}
+  .row{padding:9px 10px;border-radius:8px;margin-bottom:7px;background:var(--panel2);border:1px solid var(--line)}
+  .row:last-child{margin-bottom:0}
+  .row-top{display:flex;align-items:center;gap:9px}
+  .row-top .rk{
+    width:20px;height:20px;border-radius:5px;background:#252b37;color:var(--tx2);
+    font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 20px;
+  }
+  .row.lead .rk{background:var(--my);color:#08101c}
+  .res.ban .row.lead .rk{background:var(--enemy);color:#1a0808}
+  .row-top .av{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0b0e14;flex:0 0 26px}
+  .row-top .nm{font-weight:600;font-size:14px}
+  .row-top .rl{font-size:11px;color:var(--tx3);margin-left:2px}
+  .row-top .sc{margin-left:auto;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+  .res.ban .row-top .sc{color:#ff8f8f}
+  .res.pick .row-top .sc{color:#7ee3a6}
+  .meter{height:3px;border-radius:2px;background:#232a36;margin:7px 0 6px;overflow:hidden}
+  .meter i{display:block;height:100%;border-radius:2px}
+  .res.ban .meter i{background:linear-gradient(90deg,#c94a4a,#ff8f8f)}
+  .res.pick .meter i{background:linear-gradient(90deg,#3aa06a,#7ee3a6)}
+  .why{font-size:12px;color:var(--tx2);line-height:1.65}
+  .why em{font-style:normal;color:#cdd6e4}
+  .why .k{color:#ffc978}
+  .why .e{color:#ff9b9b}
+  .why .p{color:#8ce8b0}
+  .empty-note{color:var(--tx3);font-size:12.5px;padding:8px 4px}
+
+  .foot{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);color:var(--tx3);font-size:11.5px;line-height:1.8}
+
+  @media(max-width:960px){ .editor,.diag,.results{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>王者荣耀 · <b>Ban/Pick 推荐器</b></h1>
+  <div class="sub">输入双方已选和已 Ban 的英雄 → 输出推荐 Ban 与推荐 Pick。纯机制推理，不依赖版本数值。</div>
+
+  <div class="bar">
+    <button class="primary" id="go">开始分析</button>
+    <button class="ghost" id="demo">填入示例</button>
+    <button class="ghost" id="copy">复制结果</button>
+    <button class="ghost" id="clear">清空</button>
+    <span style="color:var(--tx3);font-size:12px" id="hint">两边都空着也能用 —— 会直接给你一份 Ban 优先级榜。</span>
+  </div>
+
+  <div class="editor">
+    <div class="side my" data-side="my">
+      <div class="side-head"><span>我方</span><span style="font-size:11px;color:var(--tx3)">蓝方</span></div>
+      <div class="side-body">
+        <div class="slot" data-kind="pick">
+          <div class="slot-head">已选英雄 <span class="n"></span></div>
+          <div class="chips"></div>
+          <input class="slot-input" placeholder="输入英雄名，点候选添加…">
+          <div class="sug"></div>
+        </div>
+        <div class="slot" data-kind="ban">
+          <div class="slot-head">已 Ban <span class="n"></span></div>
+          <div class="chips"></div>
+          <input class="slot-input" placeholder="我方 ban 掉的…">
+          <div class="sug"></div>
+        </div>
+      </div>
+    </div>
+    <div class="side enemy" data-side="enemy">
+      <div class="side-head"><span>对方</span><span style="font-size:11px;color:var(--tx3)">红方</span></div>
+      <div class="side-body">
+        <div class="slot" data-kind="pick">
+          <div class="slot-head">已选英雄 <span class="n"></span></div>
+          <div class="chips"></div>
+          <input class="slot-input" placeholder="输入英雄名，点候选添加…">
+          <div class="sug"></div>
+        </div>
+        <div class="slot" data-kind="ban">
+          <div class="slot-head">已 Ban <span class="n"></span></div>
+          <div class="chips"></div>
+          <input class="slot-input" placeholder="对方 ban 掉的…">
+          <div class="sug"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="out"></div>
+
+  <div class="foot">
+    机制原理：每个英雄标注机制标签，标签之间有固定的「被克制」关系（如 高回复 ← 重伤/真伤，多位移 ← 硬控/压制，隐身 ← 视野，强开团 ← 霸体/保护反手）。
+    推荐 Ban = 你的阵容解不掉的机制 + 能打崩你已选英雄的人；推荐 Pick = 能克制对面已选 + 能补你阵容缺口的人。<br>
+    本工具按机制推理，不读取任何服务器数据，因此不会随版本改动失效。<br>
+    英雄库共 124 名（坦克 20 / 战士 23 / 刺客 18 / 法师 30 / 射手 19 / 辅助 14），机制标签为人工整理。其中较晚上线、机制把握不够确定的英雄：<em>苍、玄雍重甲、灵武将军、亚连、影、荆刃、云中君、暃、大司命、海诺、赵怀真、月瑶、星术师、莱西奥、戈娅、敖隐、风羽、孙权、朵莉亚、少司缘、灵祝、空空儿</em>——这批的标签属于估算，实战中若发现推荐不准，可直接修改文件底部 <code>RAW</code> 数据区里对应英雄的标签（标签含义见 <code>TAG</code> 表）。
+  </div>
+</div>
+
+<script>
+/* ==========================================================
+   1. 机制标签库
+   w    = 威胁权重（0-10，越高越「没有反制就必须 Ban」）
+   cby  = 被哪些标签克制
+   ========================================================== */
+const TAG = {
+  frontline : {n:"前排坦度",   w:3,  cby:["true_dmg","shred","antiheal"]},
+  initiate  : {n:"强开团",     w:9,  cby:["peel","aegis","cleanse"]},
+  peel      : {n:"保护反手",   w:3,  cby:["burst","poke","suppress"]},
+  heal      : {n:"治疗回复",   w:4,  cby:["antiheal"]},
+  shield    : {n:"护盾",       w:3,  cby:["true_dmg","shred"]},
+  save      : {n:"免死复活",   w:6,  cby:["antiheal"]},
+  cleanse   : {n:"解控",       w:2,  cby:["suppress"]},
+  aegis     : {n:"霸体免控",   w:5,  cby:["suppress","tanky"]},
+  vision    : {n:"视野反隐",   w:3,  cby:[]},
+  zone      : {n:"区域控制",   w:3,  cby:["dash","global"]},
+  hardcc    : {n:"硬控",       w:5,  cby:["cleanse","aegis"]},
+  aoecc     : {n:"群体控制",   w:7,  cby:["cleanse","aegis","peel"]},
+  taunt     : {n:"拉拽控制",   w:5,  cby:["cleanse","aegis"]},
+  slow      : {n:"减速",       w:2,  cby:["dash","cleanse"]},
+  suppress  : {n:"压制无解",   w:10, cby:["tanky"]},
+  burst     : {n:"爆发秒杀",   w:6,  cby:["save","shield","tanky","aegis"]},
+  dps       : {n:"持续输出",   w:4,  cby:["burst","assassin","initiate"]},
+  aoe_dmg   : {n:"大范围伤害", w:4,  cby:["shield","heal","peel"]},
+  poke      : {n:"远程消耗",   w:6,  cby:["dash","assassin","initiate"]},
+  true_dmg  : {n:"真实伤害",   w:5,  cby:["tanky","regen"]},
+  antiheal  : {n:"重伤减疗",   w:4,  cby:["heal"]},
+  shred     : {n:"破甲破防",   w:3,  cby:["shield"]},
+  dash      : {n:"多段位移",   w:5,  cby:["hardcc","suppress","taunt"]},
+  assassin  : {n:"突进切后",   w:8,  cby:["tanky","peel","hardcc"]},
+  stealth   : {n:"隐身",       w:9,  cby:["vision"]},
+  kite      : {n:"拉扯风筝",   w:5,  cby:["initiate","assassin","suppress"]},
+  push      : {n:"单带推塔",   w:5,  cby:["global","peel"]},
+  global    : {n:"全图支援",   w:6,  cby:["push"]},
+  regen     : {n:"高回复",     w:7,  cby:["antiheal","true_dmg"]},
+  mitigation: {n:"免伤减伤",   w:8,  cby:["true_dmg","suppress"]},
+  tanky     : {n:"高坦度",     w:3,  cby:["true_dmg","antiheal","shred"]},
+  block     : {n:"挡飞行物",   w:3,  cby:["dash","assassin"]}
+};
+
+/* 阵容核心功能（用于检测「我方缺什么」） */
+const CORE = ["frontline","initiate","hardcc","aoecc","burst","poke","peel","heal","antiheal","true_dmg","assassin","dash","vision","global","push","zone"];
+
+/* ==========================================================
+   2. 英雄库  [名字, 职业, [机制标签]]
+   ========================================================== */
+const RAW = [
+/* 坦克 */
+["廉颇","坦克",["frontline","initiate","hardcc","aoecc","aegis"]],
+["张飞","坦克",["frontline","peel","initiate","shield","aoecc"]],
+["牛魔","坦克",["frontline","initiate","aoecc","peel","slow"]],
+["白起","坦克",["frontline","hardcc","regen","initiate","taunt"]],
+["猪八戒","坦克",["frontline","regen","push","aoecc","tanky"]],
+["程咬金","坦克",["regen","mitigation","push","tanky","frontline"]],
+["刘邦","坦克",["frontline","global","peel","shield"]],
+["亚瑟","坦克",["frontline","hardcc","push","slow","dash"]],
+["项羽","坦克",["frontline","initiate","hardcc","aoecc","taunt"]],
+["苏烈","坦克",["frontline","initiate","aoecc","save","tanky"]],
+["东皇太一","坦克",["frontline","suppress","regen","tanky"]],
+["盾山","坦克",["frontline","block","initiate","shield","aegis"]],
+["夏侯惇","坦克",["frontline","dash","hardcc","regen"]],
+["阿古朵","坦克",["frontline","push","tanky","zone","regen"]],
+["蒙恬","坦克",["frontline","push","initiate","dash","aegis"]],
+["刘禅","坦克",["frontline","hardcc","push","initiate"]],
+["梦奇","坦克",["tanky","shield","dash","frontline","block"]],
+["钟馗","坦克",["initiate","taunt","hardcc","zone","suppress"]],
+["苍","坦克",["frontline","tanky","hardcc","initiate"]],
+["玄雍重甲","坦克",["frontline","initiate","aoecc","tanky"]],
+/* 战士 */
+["赵云","战士",["dash","hardcc","burst","frontline"]],
+["铠","战士",["burst","dash","mitigation","dps","assassin"]],
+["宫本武藏","战士",["dash","block","burst","assassin","hardcc"]],
+["花木兰","战士",["dash","burst","hardcc","assassin","aegis"]],
+["关羽","战士",["dash","initiate","aoecc","taunt","push"]],
+["孙策","战士",["dash","initiate","hardcc","aoecc","frontline"]],
+["杨戬","战士",["dash","regen","shred","hardcc"]],
+["吕布","战士",["true_dmg","frontline","aoecc","tanky","regen"]],
+["狂铁","战士",["dash","regen","shield","dps"]],
+["马超","战士",["dash","push","dps","assassin"]],
+["云缨","战士",["dash","burst","hardcc","assassin"]],
+["司空震","战士",["dash","burst","aegis","aoe_dmg","assassin"]],
+["姬小满","战士",["dash","hardcc","assassin","burst"]],
+["李信","战士",["push","burst","dash","dps","zone"]],
+["曜","战士",["dash","burst","aegis","assassin"]],
+["刘备","战士",["dash","burst","shield","assassin"]],
+["钟无艳","战士",["dash","hardcc","aoecc","frontline"]],
+["达摩","战士",["dash","hardcc","burst","assassin"]],
+["曹操","战士",["regen","dash","dps","push"]],
+["典韦","战士",["true_dmg","burst","dash","dps"]],
+["哪吒","战士",["global","dash","hardcc","frontline"]],
+["亚连","战士",["dash","dps","frontline","burst"]],
+["灵武将军","战士",["frontline","dash","dps","aoecc"]],
+/* 刺客 */
+["韩信","刺客",["dash","assassin","push","burst"]],
+["兰陵王","刺客",["stealth","burst","assassin","dash"]],
+["阿轲","刺客",["stealth","burst","assassin","dash"]],
+["李白","刺客",["dash","burst","assassin","mitigation"]],
+["娜可露露","刺客",["dash","burst","assassin","kite"]],
+["镜","刺客",["dash","burst","assassin","aegis"]],
+["澜","刺客",["dash","assassin","dps","hardcc"]],
+["橘右京","刺客",["dash","burst","hardcc","assassin"]],
+["百里玄策","刺客",["dash","hardcc","assassin","burst"]],
+["露娜","刺客",["dash","dps","kite","assassin"]],
+["司马懿","刺客",["dash","burst","assassin","stealth"]],
+["孙悟空","刺客",["dash","burst","assassin","aegis"]],
+["裴擒虎","刺客",["dash","burst","assassin","poke"]],
+["影","刺客",["stealth","dash","burst","assassin"]],
+["荆刃","刺客",["dash","burst","assassin","hardcc"]],
+["云中君","刺客",["dash","assassin","burst","global"]],
+["暃","刺客",["dash","assassin","burst","kite"]],
+["大司命","刺客",["dash","regen","dps","zone","hardcc"]],
+/* 法师 */
+["妲己","法师",["burst","hardcc","poke"]],
+["安琪拉","法师",["burst","aoe_dmg","hardcc","poke"]],
+["王昭君","法师",["aoecc","zone","aoe_dmg","slow"]],
+["甄姬","法师",["aoecc","poke","zone","slow"]],
+["小乔","法师",["burst","poke","aoe_dmg"]],
+["貂蝉","法师",["dps","dash","mitigation","regen"]],
+["不知火舞","法师",["dash","burst","hardcc","assassin"]],
+["上官婉儿","法师",["dash","burst","aegis","assassin"]],
+["诸葛亮","法师",["dash","burst","poke","assassin"]],
+["周瑜","法师",["zone","aoe_dmg","poke","slow"]],
+["米莱狄","法师",["push","zone","poke"]],
+["干将莫邪","法师",["poke","burst"]],
+["墨子","法师",["poke","hardcc","shield","initiate"]],
+["杨玉环","法师",["heal","shield","aoecc","peel"]],
+["沈梦溪","法师",["poke","dash","aoe_dmg","kite"]],
+["西施","法师",["hardcc","taunt","peel","zone"]],
+["姜子牙","法师",["poke","slow","aoe_dmg"]],
+["女娲","法师",["global","zone","poke","aoecc"]],
+["弈星","法师",["zone","aoecc","poke"]],
+["嬴政","法师",["poke","aoe_dmg","kite"]],
+["高渐离","法师",["aoe_dmg","dash","burst","regen"]],
+["张良","法师",["suppress","hardcc","peel","zone"]],
+["金蝉","法师",["vision","global","peel","zone"]],
+["海月","法师",["poke","dash","kite","burst"]],
+["嫦娥","法师",["tanky","regen","aoecc","dps"]],
+["元歌","法师",["poke","dash","zone","assassin"]],
+["海诺","法师",["poke","aoe_dmg","zone","hardcc"]],
+["赵怀真","法师",["hardcc","zone","poke","aoecc"]],
+["月瑶","法师",["zone","poke","aoe_dmg","aoecc"]],
+["星术师","法师",["burst","poke","aoe_dmg"]],
+/* 射手 */
+["后羿","射手",["dps","poke","global","hardcc"]],
+["鲁班七号","射手",["dps","burst","poke"]],
+["狄仁杰","射手",["dps","dash","hardcc","poke"]],
+["成吉思汗","射手",["vision","dps","poke","kite"]],
+["虞姬","射手",["aegis","dash","burst","poke"]],
+["黄忠","射手",["poke","aoe_dmg","dps","zone"]],
+["孙尚香","射手",["dash","burst","poke"]],
+["马可波罗","射手",["dash","dps","true_dmg","aoe_dmg"]],
+["公孙离","射手",["dash","kite","dps","poke"]],
+["百里守约","射手",["poke","vision","dash","burst"]],
+["伽罗","射手",["poke","dps","kite","slow"]],
+["李元芳","射手",["dash","burst","vision","push"]],
+["蒙犽","射手",["dash","aoe_dmg","poke","dps"]],
+["莱西奥","射手",["poke","dps","aoe_dmg"]],
+["戈娅","射手",["dash","dps","poke","kite"]],
+["敖隐","射手",["poke","dps","dash","burst"]],
+["艾琳","射手",["dash","poke","dps","kite"]],
+["风羽","射手",["dash","poke","dps","global"]],
+["孙权","射手",["dash","dps","poke","burst"]],
+/* 辅助 */
+["蔡文姬","辅助",["heal","shield","aoecc","peel"]],
+["庄周","辅助",["cleanse","aegis","slow","peel","frontline"]],
+["大乔","辅助",["global","peel","save","zone","heal"]],
+["孙膑","辅助",["slow","shield","aoecc","peel","aegis"]],
+["太乙真人","辅助",["save","aoecc","peel","hardcc"]],
+["鬼谷子","辅助",["initiate","taunt","stealth","aoecc","vision"]],
+["瑶","辅助",["save","peel","shield","aegis"]],
+["明世隐","辅助",["peel","heal","hardcc","slow"]],
+["鲁班大师","辅助",["initiate","taunt","peel","zone","shield"]],
+["桑启","辅助",["heal","shield","peel","zone"]],
+["朵莉亚","辅助",["heal","mitigation","dash","peel"]],
+["少司缘","辅助",["shield","peel","zone","global"]],
+["灵祝","辅助",["shield","peel","heal","aoecc"]],
+["空空儿","辅助",["peel","shield","zone","stealth"]]
+];
+
+const ROLE_COLOR = {
+  "坦克":"#7d9bff","战士":"#ff8a5c","刺客":"#b98bff",
+  "法师":"#3fd6d6","射手":"#ffc94d","辅助":"#5fe08f"
+};
+
+const HEROES = RAW.map((h,i)=>({id:i,name:h[0],role:h[1],tags:h[2]}));
+const BY_NAME = {}; HEROES.forEach(h=>BY_NAME[h.name]=h);
+
+/* 机制危险度（0-1） */
+const MAXW = Math.max(...HEROES.map(h=>h.tags.reduce((s,t)=>s+(TAG[t]?TAG[t].w:0),0)));
+HEROES.forEach(h=>{ h.danger = h.tags.reduce((s,t)=>s+(TAG[t]?TAG[t].w:0),0)/MAXW; });
+
+/* ==========================================================
+   3. 核心推理
+   ========================================================== */
+/* a 的标签集能否克制 b 的标签集，返回命中的 [克制标签, 被克制标签] */
+function hits(aTags,bTags){
+  const out=[];
+  bTags.forEach(bt=>{
+    const cby = (TAG[bt]&&TAG[bt].cby)||[];
+    aTags.forEach(at=>{ if(cby.includes(at)) out.push([at,bt]); });
+  });
+  return out;
+}
+function unionTags(list){ const s=new Set(); list.forEach(h=>h.tags.forEach(t=>s.add(t))); return s; }
+
+function analyze(state){
+  const {myPicks,myBans,enemyPicks,enemyBans} = state;
+  const used = new Set([...myPicks,...myBans,...enemyPicks,...enemyBans].map(h=>h.name));
+  const myTags = unionTags(myPicks), enemyTags = unionTags(enemyPicks);
+
+  /* 我方缺失的核心功能 */
+  const gaps = myPicks.length ? CORE.filter(t=>!myTags.has(t)) : [];
+
+  /* 我方解不掉的敌方威胁机制（权重≥5 才算威胁） */
+  const unsolved = [...enemyTags].filter(t=>{
+    const T = TAG[t]; if(!T||T.w<5) return false;
+    return !T.cby.some(c=>myTags.has(c));
+  });
+
+  /* 敌方缺失的核心功能（对面可能靠 Ban 后选来补） */
+  const enemyGaps = enemyPicks.length>=2 ? CORE.filter(t=>!enemyTags.has(t)) : [];
+
+  const pool = HEROES.filter(h=>!used.has(h.name));
+  const cap = n => Math.max(1, Math.min(4, n));   /* 分母封顶：缺口多时不把分数稀释掉 */
+
+  /* 权重按「这一轮能拿到的信息」自动分配，拿不到的信息不占权重 */
+  const useEnemy = enemyPicks.length>0;
+  const useMine  = myPicks.length>0;
+  const useEnemyGap = enemyPicks.length>=2;
+  const useMyGap = gaps.length>0;
+  const BW = {d:0.40, u:useEnemy?0.25:0, k:useMine?0.20:0, f:useEnemyGap?0.15:0};
+  const PW = {b:useEnemy?0.35:0, g:useMyGap?0.30:0, s:useEnemy?0.20:0, d:0.15};
+  const bTot = BW.d+BW.u+BW.k+BW.f, pTot = PW.b+PW.g+PW.s+PW.d;
+
+  pool.forEach(h=>{
+    /* ---- Ban 视角 ---- */
+    const coverUnsolved = h.tags.filter(t=>unsolved.includes(t));
+    const killMy = myPicks.filter(m=>hits(h.tags,m.tags).length>0);
+    const fillEnemy = h.tags.filter(t=>enemyGaps.includes(t));
+    h.banScore = 100*(
+        BW.d*h.danger
+      + BW.u*(coverUnsolved.length/cap(unsolved.length))
+      + BW.k*(killMy.length/cap(myPicks.length))
+      + BW.f*(fillEnemy.length/cap(enemyGaps.length))
+    )/bTot;
+
+    /* ---- Pick 视角 ---- */
+    const beatEnemy = enemyPicks.filter(e=>hits(h.tags,e.tags).length>0);
+    const fillMy = h.tags.filter(t=>gaps.includes(t));
+    const solve = h.tags.filter(at=>(TAG[at]&&TAG[at].cby)||false)
+                   .filter(at=>unsolved.some(u=>(TAG[u].cby||[]).includes(at)));
+    h.pickScore = 100*(
+        PW.b*(beatEnemy.length/cap(enemyPicks.length))
+      + PW.g*(fillMy.length/cap(gaps.length))
+      + PW.s*(solve.length/cap(unsolved.length))
+      + PW.d*h.danger
+    )/pTot;
+
+    h._cover = coverUnsolved; h._kill = killMy; h._fillEnemy = fillEnemy;
+    h._beat = beatEnemy; h._fillMy = fillMy; h._solve = solve;
+  });
+
+  return {pool,gaps,unsolved,enemyGaps,myPicks,enemyPicks};
+}
+
+/* ==========================================================
+   4. 界面
+   ========================================================== */
+const state = {myPicks:[],myBans:[],enemyPicks:[],enemyBans:[]};
+
+function avHtml(h,size){
+  const c = ROLE_COLOR[h.role]||"#888";
+  return '<span class="av" style="background:'+c+'">'+h.name[0]+'</span>';
+}
+
+function renderSlots(){
+  document.querySelectorAll('.side').forEach(side=>{
+    const s = side.dataset.side;
+    side.querySelectorAll('.slot').forEach(slot=>{
+      const k = slot.dataset.kind;
+      const arr = s==='my' ? (k==='pick'?state.myPicks:state.myBans)
+                           : (k==='pick'?state.enemyPicks:state.enemyBans);
+      slot.querySelector('.n').textContent = arr.length? '('+arr.length+')' : '';
+      const box = slot.querySelector('.chips');
+      box.innerHTML = arr.map((h,i)=>
+        '<span class="chip">'+avHtml(h)+'<span>'+h.name+'</span><span class="x" data-i="'+i+'">×</span></span>'
+      ).join('');
+      box.querySelectorAll('.x').forEach(x=>{
+        x.onclick = ()=>{ arr.splice(+x.dataset.i,1); renderSlots(); };
+      });
+      rebuildSug(slot,s,k);
+    });
+  });
+}
+
+function rebuildSug(slot,side,kind){
+  const input = slot.querySelector('.slot-input');
+  const sug = slot.querySelector('.sug');
+  const q = input.value.trim();
+  const used = new Set([...state.myPicks,...state.myBans,...state.enemyPicks,...state.enemyBans].map(h=>h.name));
+  let list = HEROES.filter(h=>!used.has(h.name));
+  if(!q){ sug.innerHTML='<div class="empty">输入英雄名开始搜索（支持模糊匹配，回车直接添加）</div>'; return; }
+  list = list.filter(h=>h.name.includes(q)).slice(0,16);
+  if(!list.length){ sug.innerHTML='<div class="empty">没有匹配的英雄</div>'; return; }
+  sug.innerHTML = list.map(h=>
+    '<button data-name="'+h.name+'">'+h.name+'<b style="color:'+(ROLE_COLOR[h.role])+';font-size:10.5px;margin-left:4px">'+h.role+'</b></button>'
+  ).join('');
+  sug.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{ addHero(side,kind,b.dataset.name); input.value=''; };
+  });
+}
+
+function addHero(side,kind,name){
+  const h = BY_NAME[name]; if(!h) return;
+  const arr = side==='my' ? (kind==='pick'?state.myPicks:state.myBans)
+                          : (kind==='pick'?state.enemyPicks:state.enemyBans);
+  if(arr.some(x=>x.name===name)) return;
+  if(kind==='pick' && arr.length>=5) return;
+  arr.push(h); renderSlots();
+}
+
+function tagChips(arr,cls){
+  if(!arr.length) return '<span class="t none">无</span>';
+  return arr.map(t=>'<span class="t '+cls+'">'+(TAG[t]?TAG[t].n:t)+'</span>').join('');
+}
+
+function render(){
+  const R = analyze(state);
+  const out = document.getElementById('out');
+  const noPickYet = state.myPicks.length===0 && state.enemyPicks.length===0;
+
+  const gapsSorted = [...R.gaps].sort((a,b)=>TAG[b].w-TAG[a].w);
+  const gapsHtml = state.myPicks.length
+      ? tagChips(gapsSorted.slice(0,8),'gap') + (R.gaps.length>8 ? '<span class="t gap">+'+(R.gaps.length-8)+'</span>' : '')
+      : '<span class="t none">先填我方已选，才能算缺口</span>';
+  const unsolvedHtml = state.enemyPicks.length
+      ? tagChips(R.unsolved,'thr')
+      : '<span class="t none">先填对方已选，才能算威胁</span>';
+  const gapsNote = (state.myPicks.length>0 && state.myPicks.length<3) ? '（阵容未成型，仅供参考）' : '';
+
+  const bans = [...R.pool].sort((a,b)=>b.banScore-a.banScore).slice(0,8);
+  const picks = [...R.pool].sort((a,b)=>b.pickScore-a.pickScore).slice(0,8);
+
+  let html = '<div class="diag">'
+    + '<div class="card"><h3>我方阵容缺口'+gapsNote+'（这些机制你还没有）</h3><div class="tags">'+gapsHtml+'</div></div>'
+    + '<div class="card"><h3>对方威胁中你解不掉的</h3><div class="tags">'+unsolvedHtml+'</div></div>'
+    + '</div>';
+
+  /* 推荐 Ban */
+  html += '<div class="results"><div class="res ban"><div class="res-head">推荐 Ban（优先禁掉）</div><div class="res-body">';
+  if(noPickYet){
+    html = html.replace('推荐 Ban（优先禁掉）','推荐 Ban（双方未选人 · 按机制优先级）');
+  }
+  html += bans.map((h,i)=>{
+    const why=[];
+    if(h._cover.length) why.push('<span class="e">敌方 '+h._cover.map(t=>'【'+(TAG[t]?TAG[t].n:t)+'】').join('')+' 我方无解</span>');
+    if(h._kill.length) why.push('能克制我方 <em>'+h._kill.map(x=>x.name).join('、')+'</em>');
+    if(h._fillEnemy.length) why.push('对面缺 '+h._fillEnemy.map(t=>'【'+(TAG[t]?TAG[t].n:t)+'】').join('')+'，他会是最优补位');
+    why.push('自带 '+h.tags.slice().sort((a,b)=>TAG[b].w-TAG[a].w).slice(0,3).map(t=>'【'+TAG[t].n+'】').join(''));
+    return '<div class="row'+(i===0?' lead':'')+'">'
+      + '<div class="row-top"><span class="rk">'+(i+1)+'</span>'+avHtml(h)
+      + '<span class="nm">'+h.name+'</span><span class="rl">'+h.role+'</span>'
+      + '<span class="sc">'+h.banScore.toFixed(0)+'</span></div>'
+      + '<div class="meter"><i style="width:'+Math.min(100,h.banScore)+'%"></i></div>'
+      + '<div class="why">'+why.join('；')+'</div></div>';
+  }).join('');
+  html += '</div></div>';
+
+  /* 推荐 Pick */
+  html += '<div class="res pick"><div class="res-head">推荐 Pick（轮到你选就拿）</div><div class="res-body">';
+  if(noPickYet){
+    html += '<div class="empty-note">双方都还没选人，Pick 推荐暂时没有参考意义。先填上已选英雄再看。</div>';
+  } else {
+    html += picks.map((h,i)=>{
+      const why=[];
+      if(h._beat.length) why.push('<span class="p">克制对面</span> <em>'+h._beat.map(x=>x.name).join('、')+'</em>');
+      if(h._solve.length) why.push('能化解对面的 '+h._solve.map(t=>'【'+(TAG[t]?TAG[t].n:t)+'】').join(''));
+      if(h._fillMy.length) why.push('补我方缺口 '+h._fillMy.map(t=>'【'+(TAG[t]?TAG[t].n:t)+'】').join(''));
+      if(!why.length) why.push('机制强势，可作为稳妥之选');
+      return '<div class="row'+(i===0?' lead':'')+'">'
+        + '<div class="row-top"><span class="rk">'+(i+1)+'</span>'+avHtml(h)
+        + '<span class="nm">'+h.name+'</span><span class="rl">'+h.role+'</span>'
+        + '<span class="sc">'+h.pickScore.toFixed(0)+'</span></div>'
+        + '<div class="meter"><i style="width:'+Math.min(100,h.pickScore)+'%"></i></div>'
+        + '<div class="why">'+why.join('；')+'</div></div>';
+    }).join('');
+  }
+  html += '</div></div></div>';
+
+  out.innerHTML = html;
+
+  /* 同时生成一份纯文本，方便复制给队友 */
+  const T = [];
+  T.push('[我方缺口] ' + (R.gaps.map(t=>TAG[t].n).join('、') || '无'));
+  T.push('[对方未解威胁] ' + (R.unsolved.map(t=>TAG[t].n).join('、') || '无'));
+  T.push('');
+  T.push('推荐 Ban' + (noPickYet ? '（双方未选人，按机制优先级）' : '') + '：');
+  bans.forEach((h,i)=>T.push('  '+(i+1)+'. '+h.name+'（'+h.role+'）'));
+  if(!noPickYet){
+    T.push('');
+    T.push('推荐 Pick：');
+    picks.forEach((h,i)=>T.push('  '+(i+1)+'. '+h.name+'（'+h.role+'）'));
+  }
+  window._lastText = T.join('\n');
+}
+
+/* ==========================================================
+   5. 事件绑定
+   ========================================================== */
+document.querySelectorAll('.slot').forEach(slot=>{
+  const side = slot.closest('.side').dataset.side;
+  const kind = slot.dataset.kind;
+  const input = slot.querySelector('.slot-input');
+  input.addEventListener('input',()=>rebuildSug(slot,side,kind));
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){
+      const used = new Set([...state.myPicks,...state.myBans,...state.enemyPicks,...state.enemyBans].map(h=>h.name));
+      const q = input.value.trim();
+      const hit = HEROES.find(h=>h.name===q) || HEROES.find(h=>!used.has(h.name) && h.name.includes(q) && q);
+      if(hit){ addHero(side,kind,hit.name); input.value=''; }
+    }
+  });
+});
+
+document.getElementById('go').onclick = render;
+document.getElementById('copy').onclick = ()=>{
+  if(!window._lastText){ render(); }
+  const t = window._lastText || '';
+  const done = ()=>{ const b=document.getElementById('copy'); const o=b.textContent; b.textContent='已复制 ✓'; setTimeout(()=>b.textContent=o,1400); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(done).catch(()=>fallbackCopy(t,done));
+  } else fallbackCopy(t,done);
+};
+function fallbackCopy(t,cb){
+  const ta=document.createElement('textarea'); ta.value=t;
+  ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta);
+  ta.select(); try{ document.execCommand('copy'); cb(); }catch(e){} document.body.removeChild(ta);
+}
+document.getElementById('clear').onclick = ()=>{
+  state.myPicks=[];state.myBans=[];state.enemyPicks=[];state.enemyBans=[];
+  document.querySelectorAll('.slot-input').forEach(i=>i.value='');
+  document.getElementById('out').innerHTML=''; renderSlots();
+};
+document.getElementById('demo').onclick = ()=>{
+  const put=(side,kind,names)=>{
+    const arr = side==='my'?(kind==='pick'?state.myPicks:state.myBans):(kind==='pick'?state.enemyPicks:state.enemyBans);
+    arr.length=0; names.forEach(n=>{ if(BY_NAME[n]) arr.push(BY_NAME[n]); });
+  };
+  put('my','pick',["吕布","貂蝉"]);
+  put('my','ban',["庄周"]);
+  put('enemy','pick',["程咬金","兰陵王"]);
+  put('enemy','ban',["鲁班大师"]);
+  renderSlots(); render();
+};
+
+renderSlots();
+</script>
+</body>
+</html>
